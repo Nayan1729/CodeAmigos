@@ -47,7 +47,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/","/api/users/login","/api/users/me", "/register/", "/oauth2/authorization/", "/login/oauth2/code/", "/request/", "/requests/","/api/users/register","/api/users/ping"
+                                "/","/api/users/login","/api/users/me", "/register/", "/oauth2/authorization/", "/login/oauth2/code/", "/request/", "/requests/","/api/users/register","/api/users/ping","/put-to-queue"
                         ).permitAll()
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

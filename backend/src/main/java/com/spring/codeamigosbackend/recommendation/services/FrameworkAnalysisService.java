@@ -51,6 +51,7 @@ public class FrameworkAnalysisService {
         );
         System.out.println("Frameworks in repos: "+ repoToFrameworks.keySet().stream().map(RepositoryInfo::getName).toList().toString());
         logger.info(repoToFrameworks.values().toString());
+
         // Step 3: Count files associated with each framework
         Map<String, Integer> frameworkToFileCounts = githubApiService.countFrameworkFiles(
                 repoToFrameworks,

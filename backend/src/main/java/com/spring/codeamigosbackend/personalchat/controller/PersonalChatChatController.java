@@ -52,7 +52,6 @@ public class PersonalChatChatController {
 
         personalChat.get().getMessages().add(message);
         personalChatRepository.save(personalChat.get());
-
         return message;
     }
 }

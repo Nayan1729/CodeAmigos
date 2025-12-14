@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 
 const LandingHeader = () => {
+  const url = import.meta.env.VITE_API_BASE_URL;
   const handleGithubLogin = () => {
     // ## Change the backend url here 
-      window.location.href = "https://api.codeamigos.tech/oauth2/authorization/github";
+      window.location.href = `${url}/oauth2/authorization/github`;
   };
 
   return (

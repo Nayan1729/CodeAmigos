@@ -89,7 +89,7 @@ public class RabbitMqConfig {
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(converter);
         // Added this for automatic error handling with 1s as inital time and then 2 s , 4s, till 10 as max interval
-        //Use the retry mechanism , i .e of the RetryInterceptorBuilder .
+        //Use the retry mechanism , i.e of the RetryInterceptorBuilder.
         factory.setAdviceChain(RetryInterceptorBuilder.stateless().maxAttempts(2).recoverer(republishMessageRecoverer).backOffOptions(1000,3.0,5000).build());
         return factory;
     }

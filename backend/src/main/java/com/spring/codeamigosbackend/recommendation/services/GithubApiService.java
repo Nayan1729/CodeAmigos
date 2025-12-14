@@ -23,11 +23,12 @@ public class GithubApiService {
     private static Logger logger = LoggerFactory.getLogger(GithubApiService.class);
 
     public List<RepositoryInfo> getTopRepositories(String username, String email, String accessToken) {
-        String query = buildGraphQLQuery(username, email);
+        // Step 1: Fetch top 25 repositories using GraphQL without commit history
+        String query = buildGraphQLQuery(username);
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
-        logger.info("Access token: " + accessToken);
+
         Map<String, String> requestBody = new HashMap<>();
         requestBody.put("query", query);
 
@@ -35,48 +36,94 @@ public class GithubApiService {
         ResponseEntity<JsonNode> response = restTemplate.postForEntity(GITHUB_GRAPHQL_URL, request, JsonNode.class);
 
         JsonNode data = response.getBody().get("data");
-        logger.info("Github API response: " + data.toString());
-        if (data == null) {
-            logger.info("No data found in response");
-            return new ArrayList<>();
-        }
-
-        JsonNode repositories = data.get("user").get("repositories").get("nodes");
-        if (repositories == null) {
+        if (data == null || data.get("user") == null || data.get("user").get("repositories") == null) {
             logger.info("No repositories found for user: " + username);
             return new ArrayList<>();
         }
 
+        JsonNode repositoriesNode = data.get("user").get("repositories").get("nodes");
         List<RepositoryInfo> repoInfos = new ArrayList<>();
-        for (JsonNode repo : repositories) {
-            String name = repo.get("name").asText();
-            JsonNode defaultBranchRef = repo.get("defaultBranchRef");
+        for (JsonNode repoNode : repositoriesNode) {
+            String name = repoNode.get("name").asText();
+            JsonNode defaultBranchRef = repoNode.get("defaultBranchRef");
             if (defaultBranchRef == null || defaultBranchRef.get("name") == null) {
                 logger.info("Skipping repo " + name + ": No default branch found");
                 continue;
             }
             String defaultBranch = defaultBranchRef.get("name").asText();
 
-            List<String> commitShas = new ArrayList<>();
-            JsonNode historyEdges = defaultBranchRef.get("target").get("history").get("edges");
-            for (JsonNode edge : historyEdges) {
-                commitShas.add(edge.get("node").get("oid").asText());
-            }
-
             List<RepositoryInfo.Language> topLanguages = new ArrayList<>();
-            JsonNode languagesNodes = repo.get("languages").get("nodes");
-            JsonNode languagesEdges = repo.get("languages").get("edges");
+            JsonNode languagesNodes = repoNode.get("languages").get("nodes");
+            JsonNode languagesEdges = repoNode.get("languages").get("edges");
             for (int i = 0; i < languagesNodes.size(); i++) {
                 String langName = languagesNodes.get(i).get("name").asText();
                 long langSize = languagesEdges.get(i).get("size").asLong();
                 topLanguages.add(new RepositoryInfo.Language(langName, langSize));
             }
-            repoInfos.add(new RepositoryInfo(name, defaultBranch, commitShas, topLanguages));
+            // Initially, commitShas list is empty
+            repoInfos.add(new RepositoryInfo(name, defaultBranch, new ArrayList<>(), topLanguages));
         }
+
+        // Step 2: Fetch commit SHAs for each repository using the REST API, in parallel
+        int threadPoolSize = Math.min(repoInfos.size(), 10);
+        ExecutorService executor = Executors.newFixedThreadPool(threadPoolSize);
+        List<Future<Void>> futures = new ArrayList<>();
+
+        for (RepositoryInfo repo : repoInfos) {
+            Callable<Void> task = () -> {
+                try {
+                    List<String> commitShas = fetchCommitShasForRepo(repo, username, accessToken);
+                    repo.setCommitShas(commitShas);
+                } catch (Exception e) {
+                    logger.error("Error fetching commits for repo " + repo.getName() + ": " + e.getMessage(), e);
+                    // Keep commitShas list empty on error
+                }
+                return null;
+            };
+            futures.add(executor.submit(task));
+        }
+
+        for (Future<Void> future : futures) {
+            try {
+                future.get(60, TimeUnit.SECONDS); // Timeout for each task
+            } catch (Exception e) {
+                logger.error("Error retrieving commit fetch result: " + e.getMessage(), e);
+            }
+        }
+
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+
         return repoInfos;
     }
 
-    public String buildGraphQLQuery(String username, String email) {
+    private List<String> fetchCommitShasForRepo(RepositoryInfo repo, String owner, String accessToken) {
+        String url = String.format("https://api.github.com/repos/%s/%s/commits?author=%s&per_page=100", owner, repo.getName(), owner);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<JsonNode> response = restTemplate.exchange(url, HttpMethod.GET, entity, JsonNode.class);
+        JsonNode commits = response.getBody();
+
+        List<String> commitShas = new ArrayList<>();
+        if (commits != null && commits.isArray()) {
+            for (JsonNode commit : commits) {
+                commitShas.add(commit.get("sha").asText());
+            }
+        }
+        logger.info("Fetched {} commits for repository {}", commitShas.size(), repo.getName());
+        return commitShas;
+    }
+
+    public String buildGraphQLQuery(String username) {
         return String.format("""
         query {
           user(login: "%s") {
@@ -85,23 +132,8 @@ public class GithubApiService {
                 name
                 defaultBranchRef {
                   name
-                  target {
-                    ... on Commit {
-                      history(first: 100, author: {emails: ["%s"]}) {
-                        edges {
-                          node {
-                            oid
-                          }
-                        }
-                        pageInfo {
-                          hasNextPage
-                          endCursor
-                        }
-                      }
-                    }
-                  }
                 }
-                languages(first: 3 ,  orderBy: {field: SIZE, direction: DESC}) {
+                languages(first: 3, orderBy: {field: SIZE, direction: DESC}) {
                   edges {
                     size
                   }
@@ -110,14 +142,10 @@ public class GithubApiService {
                   }
                 }
               }
-              pageInfo {
-                hasNextPage
-                endCursor
-              }
             }
           }
         }
-        """, username, email);
+        """, username);
     }
 
     public Map<RepositoryInfo, List<String>> getFrameworksForRepositories(List<RepositoryInfo> repositories, String owner, String accessToken) {
@@ -315,13 +343,13 @@ public class GithubApiService {
 
         Set<String> detectedFrameworks = new HashSet<>();
         for (String configPath : configFilePaths) {
-            String configFileName = configPath.substring(configPath.lastIndexOf("/") + 1);
+            String configFileName = configPath.substring(configPath.lastIndexOf("/") + 1); // To get the fileName
             if (!Mappings.CONFIG_TO_DEPENDENCY_FRAMEWORK.containsKey(configFileName)) {
                 logger.warn("No dependency-framework mapping for: {}", configFileName);
                 continue;
             }
 
-            String contentUrl = "https://api.github.com/repos/" + owner + "/" + repo.getName() + "/contents/" + configPath + "?ref=" + repo.getDefaultBranch();
+             String contentUrl = "https://api.github.com/repos/" + owner + "/" + repo.getName() + "/contents/" + configPath + "?ref=" + repo.getDefaultBranch();
             ResponseEntity<JsonNode> contentResponse = restTemplate.exchange(contentUrl, HttpMethod.GET, entity, JsonNode.class);
             JsonNode contentNode = contentResponse.getBody();
 
