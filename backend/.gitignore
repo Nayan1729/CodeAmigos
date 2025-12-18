@@ -33,5 +33,5 @@ build/
 .vscode/
 .env
 ../gemini.md
-../BUG-FIX-FRAMEWORK-DETECTION.md
 ../CI-CD-IMPLEMENTATION-PLAN.md
+../BUG-FIX-FRAMEWORK-DETECTION.md
