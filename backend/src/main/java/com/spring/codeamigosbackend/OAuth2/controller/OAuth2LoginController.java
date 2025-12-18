@@ -24,7 +24,7 @@ import java.util.Optional;
 @RequestMapping("/oauth2")
 public class OAuth2LoginController {
 
-    private static Dotenv dotenv = Dotenv.load();
+    private static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private static final String SECRET_KEY = dotenv.get("JWT_SECRET_KEY"); // Store in env variable
     @Autowired
     private UserRepository userRepository;

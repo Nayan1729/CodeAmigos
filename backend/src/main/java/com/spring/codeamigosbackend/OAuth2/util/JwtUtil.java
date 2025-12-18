@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 @Component
 public class JwtUtil {
-    private static Dotenv dotenv = Dotenv.load();
+    private static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private static final String SECRET_KEY = dotenv.get("JWT_SECRET_KEY"); // Store in env variable
     private static final SecretKey KEY = Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8));
     private static final long EXPIRATION_TIME = 5 * 24 * 60 * 60 * 1000; // 5 days

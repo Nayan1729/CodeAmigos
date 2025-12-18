@@ -22,7 +22,7 @@ public class RabbitMqProducer {
 
     private final UserRepository userRepository;
     private final UserFrameworkStatsRepository statsRepository;
-    private Dotenv dotenv = Dotenv.load();
+    private Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
     private final RabbitTemplate rabbitTemplate;
     private static final Logger logger = LoggerFactory.getLogger(RabbitMqProducer.class);

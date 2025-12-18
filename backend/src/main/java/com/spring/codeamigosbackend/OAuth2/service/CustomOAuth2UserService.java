@@ -21,7 +21,7 @@ import java.util.Optional;
 @Service
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
-    private static Dotenv dotenv = Dotenv.load();
+    private static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private static final String SECRET_KEY = dotenv.get("JWT_SECRET_KEY"); // Store in env variable
 
     @Autowired

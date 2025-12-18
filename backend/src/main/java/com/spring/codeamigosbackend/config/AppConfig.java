@@ -11,7 +11,7 @@ import java.util.Map;
 @Configuration
 public class AppConfig {
 
-    private static final Dotenv dotenv = Dotenv.load();
+    private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
     @Bean
     public Cloudinary getCloudinary() {
