@@ -22,7 +22,7 @@ jobs:
               uses: actions/setup-java@v4
               with:
                 distribution: 'temurin'
-                java-version: 21
+                java-version: '21'
             #  Step 3 :- Using the project code and jdk21 build the project. 
             # Tip:- This step also ensures that the tests are also run so no need for another step like mvn -B test --file pom.xml
             - name: Build the project
