@@ -1,0 +1,54 @@
+# Name the workflow
+name : CI/CD Workflow for Backend
+# Assign the events that trigger jobs
+on:
+    push: 
+        branches: [main]
+        paths: [./backend/**]
+    pull_request:
+        branches: [main]
+        paths: [./backend/**]
+
+#Create jobs and build it which runs on ubuntu machine and the entire job is divided into steps
+jobs: 
+    build: 
+        runs-on: ubuntu-latest
+        steps:
+            # Step 1 :- Copy code on github's ubuntu server
+            - name: Checkout code on the ubuntu machine 
+              uses: actions/checkout@v5
+            #   Step 2 :- Set up JDK21 so that u can install the dependencies 
+            - name: Set Up JDK 21 
+              uses: actions/setup-java@v5
+              with:
+                distribution: 'temurin'
+                version: 21
+            #  Step 3 :- Using the project code and jdk21 build the project. 
+            # Tip:- This step also ensures that the tests are also run so no need for another step like mvn -B test --file pom.xml
+            - name: Build the project
+              run: mvn -B clean package --file ./backend/pom.xml
+            
+            # Step 4:- Login to docker to ensure that we are able to build the image and push it to docker hub. 
+            - name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                username: ${{ secrets.DOCKERHUB_USERNAME }}
+                password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+            #Step 5:- Push the image to docker Hub so the CD pipeline and directly use that image to directly to render
+            - name: Build and Deploy image to Docker Hub
+              uses: docker/build-push-action@v6
+              with: 
+                push: true
+                context: ./backend/
+                tags: ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.run_number }}
+                file: ./backend/Dockerfile
+            
+            # Step 6:- Trigger the deployment workflow to render using repository dispatch
+            - name: Deploy a Docker image to Render platform
+              uses: gh-actions-workflows/deploy-docker-render@v1.3
+              with:
+                deploy-hook: ${{ secrets.RENDER_DEPLOY_HOOK }}
+                image-url: ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.run_number }}
+                render-api-key: ${{ secrets.RENDER_API_KEY }}
+                wait-for-deployment: true
