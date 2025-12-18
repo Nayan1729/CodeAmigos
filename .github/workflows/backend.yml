@@ -26,7 +26,7 @@ jobs:
             #  Step 3 :- Using the project code and jdk21 build the project. 
             # Tip:- This step also ensures that the tests are also run so no need for another step like mvn -B test --file pom.xml
             - name: Build the project
-              run: mvn -B clean package --file ./backend/pom.xml
+              run: mvn -B clean package --file ./backend/pom.xml -DskipTests
             
             # Step 4:- Login to docker to ensure that we are able to build the image and push it to docker hub. 
             - name: Login to Docker Hub

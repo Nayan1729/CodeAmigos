@@ -7,7 +7,6 @@ import com.opencagedata.jopencage.model.JOpenCageResponse;
 import com.opencagedata.jopencage.model.JOpenCageReverseRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 
