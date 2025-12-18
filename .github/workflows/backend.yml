@@ -4,10 +4,10 @@ name : CI/CD Workflow for Backend
 on:
     push: 
         branches: [main]
-        paths: [./backend/**]
+        paths: [backend/**]
     pull_request:
         branches: [main]
-        paths: [./backend/**]
+        paths: [backend/**]
 
 #Create jobs and build it which runs on ubuntu machine and the entire job is divided into steps
 jobs: 
@@ -42,7 +42,7 @@ jobs:
                 push: true
                 context: ./backend/
                 tags: ${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.run_number }}
-                file: ./backend/Dockerfile
+                file: backend/Dockerfile
             
             # Step 6:- Trigger the deployment workflow to render using repository dispatch
             - name: Deploy a Docker image to Render platform
